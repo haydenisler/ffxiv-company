@@ -3,8 +3,17 @@ services:
     build: ./xivapi-explorer
     container_name: xivapi-explorer
     ports:
-      - 8080:8080
+      - 5173:5173
     volumes:
       - type: bind
         source: ./xivapi-explorer
+        target: /app
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - 8000:8000
+    volumes:
+      - type: bind
+        source: ./backend
         target: /app

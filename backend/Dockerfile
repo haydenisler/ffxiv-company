@@ -7,3 +7,5 @@ ENV LC_ALL C.UTF-8
 ENV LANG C.UTF-8
 
 RUN pip3 install --no-cache -r requirements.txt && pip3 install --no-cache -r requirements-dev.txt
+
+CMD ["uvicorn", "src.main:app", "--reload", "--host", "0.0.0.0"]
