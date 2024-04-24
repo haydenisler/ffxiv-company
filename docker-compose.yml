@@ -1,0 +1,10 @@
+services:
+  xivapi-explorer:
+    build: ./xivapi-explorer
+    container_name: xivapi-explorer
+    ports:
+      - 8080:8080
+    volumes:
+      - type: bind
+        source: ./xivapi-explorer
+        target: /app
