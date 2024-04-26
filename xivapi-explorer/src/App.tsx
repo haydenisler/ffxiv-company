@@ -1,6 +1,7 @@
-import { Suspense, useMemo, useState } from "react";
+import { Fragment, Suspense, useMemo, useState } from "react";
 import useSWR from "swr";
 import { create } from 'zustand';
+import { Link, Route, Switch, useLocation } from "wouter";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -19,11 +20,11 @@ import { Button } from "@/components/ui/button";
 const XIVAPI_BASE_URL = "https://xivapi.com";
 
 const navigationData = [
-  { name: 'Game Data', url: '/gamedata' },
-  { name: 'Character', url: '/character' },
-  { name: 'Free Company', url: '/freecompany' },
-  { name: 'Linkshell', url: '/linkshell' },
-  { name: 'PvP Team', url: '/pvpteam' },
+  { name: 'Game Data', url: '/', disabled: false, },
+  { name: 'Character', url: '/character', disabled: true  },
+  { name: 'Free Company', url: '/freecompany', disabled: false },
+  { name: 'Linkshell', url: '/linkshell', disabled: true },
+  { name: 'PvP Team', url: '/pvpteam', disabled: true },
 ];
 
 interface Pagination {
@@ -226,7 +227,7 @@ function GameDataSidebar() {
         />
         <Separator className="my-4" />
         <ScrollArea className="h-full">
-          {filteredContent?.map((c: string) => <GameDataSidebarRow content={c} />)}
+          {filteredContent?.map((c: string, i) => <GameDataSidebarRow key={i} content={c} />)}
         </ScrollArea>
       </Suspense>
     </div>
@@ -254,33 +255,40 @@ function Header() {
 }
 
 function Navigation() {
+  const [location] = useLocation();
+
   return (
     <div className="px-4 py-2 border-b flex gap-x-4">
       {navigationData.map((nav, i) => {
         return (
-          <>
-            <a key={i}>{nav.name}</a>
-            <Separator key={`${i}-s`} orientation="vertical" />
-          </>
+          <Fragment key={i}>
+            <Link 
+              href={nav.url} 
+              className={cn(
+                nav.disabled && 'text-slate-300 pointer-events-none',
+                location === nav.url && 'underline'
+              )}
+            >
+                {nav.name}
+            </Link>
+            <Separator orientation="vertical" />
+          </Fragment>
         );
       })}
     </div>
   );
 }
 
-function Layout() {
+function App() {
   return (
     <div className="w-screen h-screen overflow-hidden flex flex-col">
       <Header />
       <Navigation />
-      <GameData />
+      <Switch>
+        <Route path="/" component={GameData}/>
+        <Route>{'404 :('}</Route>
+      </Switch>
     </div>
-  );
-}
-
-function App() {
-  return (
-    <Layout />
   );
 }
 
