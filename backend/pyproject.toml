@@ -6,7 +6,7 @@ line-length = 120
 
 [tool.mypy]
 python_version = 3.12
-warn_redundant_casts = True
-warn_unused_ignores = True
-disallow_untyped_calls = True
-disallow_untyped_defs = True
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true

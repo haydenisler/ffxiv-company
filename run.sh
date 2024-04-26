@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Ee
 
-export COMPOSE_PROJECT_NAME="ffxiv-company"
+export COMPOSE_PROJECT_NAME="ironworks"
 
 case $1 in
     start )
@@ -29,6 +29,8 @@ case $1 in
         ;;
     clean )
         echo "Cleaning Docker environment..."
+        docker stop $(docker ps -a -q)
+        docker rm $(docker ps -a -q)
         docker system prune -af --volumes
     ;;
     * )

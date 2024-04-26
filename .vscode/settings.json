@@ -1,0 +1,11 @@
+{
+    "terminal.integrated.scrollback": 10000,
+    "editor.formatOnSave": true,
+    "python.analysis.extraPaths": [],
+    "python.autoComplete.extraPaths": ["backend/src"],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.tabSize": 4
+    },
+    "black-formatter.args": ["--config=backend/pyproject.toml"],
+}
