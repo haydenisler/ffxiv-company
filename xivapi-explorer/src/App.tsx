@@ -1,14 +1,30 @@
-import { useState, ReactNode, useMemo, ChangeEvent } from 'react';
-import useSWR, { SWRConfig } from 'swr';
+import { Suspense, useMemo, useState } from "react";
+import useSWR from "swr";
+import { create } from 'zustand';
 
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
-import './App.scss';
+const XIVAPI_BASE_URL = "https://xivapi.com";
 
-// --- Constants ---
-
-const XIVAPI_BASE_ROUTE = 'https://xivapi.com';
-
-// --- API Types ---
+const navigationData = [
+  { name: 'Game Data', url: '/gamedata' },
+  { name: 'Character', url: '/character' },
+  { name: 'Free Company', url: '/freecompany' },
+  { name: 'Linkshell', url: '/linkshell' },
+  { name: 'PvP Team', url: '/pvpteam' },
+];
 
 interface Pagination {
   Page: number;
@@ -32,131 +48,240 @@ interface ContentResponse {
   Results: ContentResult[];
 }
 
-// --- Utility Components ---
+interface ContentRowData { 
+  name: string | null; 
+  url: string;
+} 
 
-interface RequestHandlerProps {
-  isLoading: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: any;
-  children?: ReactNode | undefined;
+interface GameContentState {
+  contentId: string;
+  setContentId: (name: string) => void;
+  contentPage: number;
+  setContentPage: (page: number) => void;
+  contentRowData: ContentRowData | null;
+  setContentRowData: (data: ContentRowData | null) => void;
 }
 
-function RequestHandler ({ isLoading, error, children }: RequestHandlerProps): ReactNode {
-  if (isLoading) {
-    return <div>Loading...</div>
-  }
+const useGameContentStore = create<GameContentState>()(
+  (set) => ({
+    contentId: '',
+    setContentId: (name) => set(() => ({ contentId: name })),
+    contentPage: 1,
+    setContentPage: (page) => set(() => ({ contentPage: page })),
+    contentRowData: null,
+    setContentRowData: (data) => set(() => ({ contentRowData: data })),
+  })
+);
 
-  if (error) {
-    return <div>{error}</div>
-  }
-
+function Loading() {
   return (
-    <>
-      {children}
-    </>
-  );
-}
-
-// --- ContentItem ---
-
-interface ContentItemProps extends ContentResult {}
-
-function ContentItem({ ID: id, Icon: icon, Name: name, Url: url }: ContentItemProps) {
-  const [open, setOpen] = useState(false);
-
-  const { data: content, isLoading, error } = useSWR<ContentResponse>(open ? `${XIVAPI_BASE_ROUTE}${url}` : null);
-
-  const handleClick = () => setOpen((prev) => !prev);
-
-  return (
-    <div className="content-item" onClick={handleClick}>
-      <div>{id}</div>
-      {icon ? (<img src={`${XIVAPI_BASE_ROUTE}${icon}`} />) : (<span>-</span>) }
-      {name ? (<div>{name}</div>) : (<span>-</span>)}
-      <div>{url}</div>
-      <div className="content-item__data">
-        {open ? (
-          <RequestHandler isLoading={isLoading} error={error}>
-            <pre>{JSON.stringify(content, null, 2)}</pre>
-          </RequestHandler>
-        ) : null}
-      </div>
+    <div className="h-full justify-center flex items-center">
+      <p className="text-sm text-muted-foreground">
+        Loading...
+      </p>
     </div>
   );
 }
 
-// --- ContentArea ---
+function GameDataContentDrilled () {
+  const contentName = useGameContentStore((state) => state.contentId);
+  const contentRowData = useGameContentStore((state) => state.contentRowData);
+  const setContentRowData = useGameContentStore((state) => state.setContentRowData);
 
-interface ContentAreaProps {
-  data: string;
-}
+  const { data, isLoading } = useSWR<Record<string, unknown>>(contentRowData ? `${XIVAPI_BASE_URL}${contentRowData?.url}`: null);
 
-function ContentArea({ data }: ContentAreaProps) {
-  const [open, setOpen] = useState(false);
-
-  const { data: content, isLoading, error } = useSWR<ContentResponse>(open ? `${XIVAPI_BASE_ROUTE}/${data}` : null);
-
-  const handleClick = () => setOpen((prev) => !prev);
+  const handleBack = () => setContentRowData(null);
 
   return (
-    <div className="content-area">
-      <div className="content-area__title" onClick={handleClick}>
-        { data }
+    <div className="flex-shrink-0 flex-grow bg-slate-50 p-4 h-full flex flex-col gap-y-4">
+      <div className="flex gap-x-4 items-center">
+        <Button variant="outline" onClick={handleBack}>{"<- Back"}</Button>
+        <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+          { `${contentName} -> ${ contentRowData?.name ?? contentRowData?.url ?? ''}`}
+        </h3>
       </div>
-      {open ? (
-        <div className="content-area__results">
-          <div className="content-area__header">
-            <div>id</div>
-            <div>icon</div>
-            <div>name</div>
-            <div>url</div>
-          </div>
-          <RequestHandler isLoading={isLoading} error={error} >
-            {content?.Results.map((result) => <ContentItem key={result.ID} {...result} />)}
-          </RequestHandler>
+      <ScrollArea  className="border rounded bg-white p-2 flex-grow ">
+        {isLoading ? <Loading /> : (
+          <pre className="text-sm font-medium leading-none">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
+
+function GameDataContent() {
+  const contentName = useGameContentStore((state) => state.contentId);
+  const setContentRowData = useGameContentStore((state) => state.setContentRowData);
+  const contentPage = useGameContentStore((state) => state.contentPage);
+  const setContentPage = useGameContentStore((state) => state.setContentPage);
+
+  const { data, isLoading } = useSWR<ContentResponse>(contentName ? `${XIVAPI_BASE_URL}/${contentName}?page=${contentPage}`: null);
+
+  const handlePrev = () => setContentPage(contentPage - 1);
+  const handleNext = () => setContentPage(contentPage + 1);
+
+  return (
+    <div className="flex-shrink-0 flex-grow bg-slate-50">
+      {contentName ? (
+        <div className="h-full p-4 flex flex-col">
+          <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight mb-4">
+            { contentName }
+          </h3>
+          { isLoading ? (
+              <Loading />
+            ) : (
+              <>
+                <ScrollArea className="border bg-white">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[100px]">Id</TableHead>
+                        <TableHead>Icon</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Url</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.Results.map((d) => (
+                        <TableRow className="hover:cursor-pointer" onClick={() => setContentRowData({ name: d.Name, url: d.Url })}>
+                          <TableCell className="font-medium">{d.ID}</TableCell>
+                          <TableCell>
+                            {d.Icon ? (
+                              <img src={`${XIVAPI_BASE_URL}${d.Icon}`} />
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>{d.Name ?? '-'}</TableCell>
+                          <TableCell>{d.Url}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+                {(data?.Pagination?.PageTotal ?? 0) > 1 ? (
+                  <div className="w-full flex items-center align-middle justify-end mt-4 gap-x-4">
+                    <Button onClick={handlePrev} disabled={contentPage === 1} variant="outline">Prev</Button>
+                    <p className="text-sm text-muted-foreground">
+                      {`Page ${contentPage} of ${data?.Pagination?.PageTotal}`}
+                    </p>
+                    <Button onClick={handleNext} disabled={contentPage === data?.Pagination?.PageTotal} variant="outline">Next</Button>
+                  </div>
+                ) : null}
+              </>
+            )}
         </div>
-      ) : null}
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-sm text-muted-foreground">
+            {"<- select some game data."}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
-// --- Main ---
+function GameDataSidebarRow({ content }: { content: string; url?: string; }) {
+  const contentName = useGameContentStore((state) => state.contentId);
+  const setContentName = useGameContentStore((state) => state.setContentId);
+  const setContentRowData = useGameContentStore((state) => state.setContentRowData);
+  const setContentPage = useGameContentStore((state) => state.setContentPage);
 
-function Main() {
+
+  return (
+    <div 
+      className={cn(
+        contentName === content && "bg-blue-50 shadow",
+        "w-full border rounded-sm px-2 py-1 mb-2 hover:cursor-pointer hover:shadow hover:bg-slate-50 transition-all"
+      )}
+      onClick={() => { 
+        setContentName(content);
+        setContentRowData(null);
+        setContentPage(1);
+      }}
+    >
+      <span>{content}</span>
+    </div>
+  );
+}
+
+function GameDataSidebar() {
+  const { data: gameContent } = useSWR<string[]>(`${XIVAPI_BASE_URL}/content`, null, { suspense: true });
+
   const [search, setSearch] = useState('');
 
-  const { data: content, isLoading, error } = useSWR(`${XIVAPI_BASE_ROUTE}/content`);
-
   const filteredContent = useMemo(() => {
-    if (!content) return content;
-
-    return content.filter((c: string) => c.toLowerCase().includes(search.toLowerCase()));
-  }, [content, search]);
-  
-  const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-  } 
+    return gameContent?.filter((c) => c.toLowerCase().includes(search.toLowerCase()));
+  }, [gameContent, search]);
 
   return (
-    <>
-      <input type="text" value={search} onChange={handleSearch}></input>
-      <RequestHandler isLoading={isLoading} error={error}>
-        {filteredContent?.map((area: string) => 
-          <ContentArea key={area} data={area} />
-        )}
-      </RequestHandler>
-    </>
+    <div className="flex-shrink-0 border-r h-full p-4 pt-4 w-80">
+      <Suspense fallback={<Loading />}>
+        <Input 
+          type="text" 
+          placeholder="Search..." 
+          value={search} 
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Separator className="my-4" />
+        <ScrollArea className="h-full">
+          {filteredContent?.map((c: string) => <GameDataSidebarRow content={c} />)}
+        </ScrollArea>
+      </Suspense>
+    </div>
+  );
+}
+
+function GameData() {
+  const contentRowData = useGameContentStore((state) => state.contentRowData);
+
+  return (
+    <div className="flex-shrink-0 flex-grow flex h-0">
+      <GameDataSidebar />
+      { contentRowData ? <GameDataContentDrilled /> : <GameDataContent /> }
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <div className="w-full flex-shrink-0 p-4 border-b flex items-center">
+      <h1 className="flex-shrink-0">xivapi explorer - :)</h1>
+      <Input className="w-52 ml-auto" type="text" placeholder="Search API" disabled />
+    </div>
+  );
+}
+
+function Navigation() {
+  return (
+    <div className="px-4 py-2 border-b flex gap-x-4">
+      {navigationData.map((nav, i) => {
+        return (
+          <>
+            <a key={i}>{nav.name}</a>
+            <Separator key={`${i}-s`} orientation="vertical" />
+          </>
+        );
+      })}
+    </div>
+  );
+}
+
+function Layout() {
+  return (
+    <div className="w-screen h-screen overflow-hidden flex flex-col">
+      <Header />
+      <Navigation />
+      <GameData />
+    </div>
   );
 }
 
 function App() {
   return (
-    <SWRConfig value={{
-      fetcher: (resource, init) => fetch(resource, init).then(res => res.json()),
-    }}>
-      <Main />
-    </SWRConfig>
+    <Layout />
   );
 }
 
-export default App
+export default App;
