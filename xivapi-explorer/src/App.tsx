@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { GameData } from "@/pages/GameData";
+import { FreeCompany } from "@/pages/FreeCompany";
+
 import { navigationData } from "@/config/navigation";
 
 function Header() {
@@ -48,6 +50,7 @@ function App() {
       <Navigation />
       <Switch>
         <Route path="/" component={GameData}/>
+        <Route path="/freecompany" component={FreeCompany} />
         <Route>{'404 :('}</Route>
       </Switch>
     </div>

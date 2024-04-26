@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/Loading";
 import { XIVAPI_BASE_URL } from "@/config/dataUrls";
+import { ErrorBoundary } from "react-error-boundary";
 
 interface Pagination {
   Page: number;
@@ -199,18 +200,20 @@ function GameDataSidebar() {
 
   return (
     <div className="flex-shrink-0 border-r h-full p-4 pt-4 w-80">
-      <Suspense fallback={<Loading />}>
-        <Input 
-          type="text" 
-          placeholder="Search..." 
-          value={search} 
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Separator className="my-4" />
-        <ScrollArea className="h-full">
-          {filteredContent?.map((c: string, i) => <GameDataSidebarRow key={i} content={c} />)}
-        </ScrollArea>
-      </Suspense>
+      <ErrorBoundary fallback={<h1>Oop!</h1>}>
+        <Suspense fallback={<Loading />}>
+          <Input 
+            type="text" 
+            placeholder="Search..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Separator className="my-4" />
+          <ScrollArea className="h-full">
+            {filteredContent?.map((c: string, i) => <GameDataSidebarRow key={i} content={c} />)}
+          </ScrollArea>
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }
