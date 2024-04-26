@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import useSWR from "swr";
 import { create } from 'zustand';
 
@@ -48,15 +48,28 @@ interface ContentResponse {
   Results: ContentResult[];
 }
 
+interface ContentRowData { 
+  name: string | null; 
+  url: string;
+} 
+
 interface GameContentState {
-  contentName: string;
-  setContentName: (name: string) => void;
+  contentId: string;
+  setContentId: (name: string) => void;
+  contentPage: number;
+  setContentPage: (page: number) => void;
+  contentRowData: ContentRowData | null;
+  setContentRowData: (data: ContentRowData | null) => void;
 }
 
 const useGameContentStore = create<GameContentState>()(
   (set) => ({
-    contentName: '',
-    setContentName: (name) => set(() => ({ contentName: name })),
+    contentId: '',
+    setContentId: (name) => set(() => ({ contentId: name })),
+    contentPage: 1,
+    setContentPage: (page) => set(() => ({ contentPage: page })),
+    contentRowData: null,
+    setContentRowData: (data) => set(() => ({ contentRowData: data })),
   })
 );
 
@@ -70,20 +83,44 @@ function Loading() {
   );
 }
 
+function GameDataContentDrilled () {
+  const contentName = useGameContentStore((state) => state.contentId);
+  const contentRowData = useGameContentStore((state) => state.contentRowData);
+  const setContentRowData = useGameContentStore((state) => state.setContentRowData);
+
+  const { data, isLoading } = useSWR<Record<string, unknown>>(contentRowData ? `${XIVAPI_BASE_URL}${contentRowData?.url}`: null);
+
+  const handleBack = () => setContentRowData(null);
+
+  return (
+    <div className="flex-shrink-0 flex-grow bg-slate-50 p-4 h-full flex flex-col gap-y-4">
+      <div className="flex gap-x-4 items-center">
+        <Button variant="outline" onClick={handleBack}>{"<- Back"}</Button>
+        <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+          { `${contentName} -> ${ contentRowData?.name ?? contentRowData?.url ?? ''}`}
+        </h3>
+      </div>
+      <ScrollArea  className="border rounded bg-white p-2 flex-grow ">
+        {isLoading ? <Loading /> : (
+          <pre className="text-sm font-medium leading-none">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
+
 function GameDataContent() {
-  const contentName = useGameContentStore((state) => state.contentName);
-  const [currentPage, setCurrentPage] = useState(1);
+  const contentName = useGameContentStore((state) => state.contentId);
+  const setContentRowData = useGameContentStore((state) => state.setContentRowData);
+  const contentPage = useGameContentStore((state) => state.contentPage);
+  const setContentPage = useGameContentStore((state) => state.setContentPage);
 
-  const { data, isLoading } = useSWR<ContentResponse>(contentName ? `${XIVAPI_BASE_URL}/${contentName}?page=${currentPage}`: null);
+  const { data, isLoading } = useSWR<ContentResponse>(contentName ? `${XIVAPI_BASE_URL}/${contentName}?page=${contentPage}`: null);
 
-  const handlePrev = () => setCurrentPage((prev) => prev - 1);
-  const handleNext = () => setCurrentPage((prev) => prev + 1);
-
-
-  // Reset the page number when navagating away from the current game content
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [contentName]);
+  const handlePrev = () => setContentPage(contentPage - 1);
+  const handleNext = () => setContentPage(contentPage + 1);
 
   return (
     <div className="flex-shrink-0 flex-grow bg-slate-50">
@@ -108,7 +145,7 @@ function GameDataContent() {
                     </TableHeader>
                     <TableBody>
                       {data?.Results.map((d) => (
-                        <TableRow className="hover:cursor-pointer">
+                        <TableRow className="hover:cursor-pointer" onClick={() => setContentRowData({ name: d.Name, url: d.Url })}>
                           <TableCell className="font-medium">{d.ID}</TableCell>
                           <TableCell>
                             {d.Icon ? (
@@ -124,11 +161,11 @@ function GameDataContent() {
                 </ScrollArea>
                 {(data?.Pagination?.PageTotal ?? 0) > 1 ? (
                   <div className="w-full flex items-center align-middle justify-end mt-4 gap-x-4">
-                    <Button onClick={handlePrev} disabled={currentPage === 1} variant="outline">Prev</Button>
+                    <Button onClick={handlePrev} disabled={contentPage === 1} variant="outline">Prev</Button>
                     <p className="text-sm text-muted-foreground">
-                      {`Page ${currentPage} of ${data?.Pagination?.PageTotal}`}
+                      {`Page ${contentPage} of ${data?.Pagination?.PageTotal}`}
                     </p>
-                    <Button onClick={handleNext} disabled={currentPage === data?.Pagination?.PageTotal} variant="outline">Next</Button>
+                    <Button onClick={handleNext} disabled={contentPage === data?.Pagination?.PageTotal} variant="outline">Next</Button>
                   </div>
                 ) : null}
               </>
@@ -146,8 +183,11 @@ function GameDataContent() {
 }
 
 function GameDataSidebarRow({ content }: { content: string; url?: string; }) {
-  const contentName = useGameContentStore((state) => state.contentName);
-  const setContentName = useGameContentStore((state) => state.setContentName);
+  const contentName = useGameContentStore((state) => state.contentId);
+  const setContentName = useGameContentStore((state) => state.setContentId);
+  const setContentRowData = useGameContentStore((state) => state.setContentRowData);
+  const setContentPage = useGameContentStore((state) => state.setContentPage);
+
 
   return (
     <div 
@@ -155,7 +195,11 @@ function GameDataSidebarRow({ content }: { content: string; url?: string; }) {
         contentName === content && "bg-blue-50 shadow",
         "w-full border rounded-sm px-2 py-1 mb-2 hover:cursor-pointer hover:shadow hover:bg-slate-50 transition-all"
       )}
-      onClick={() => setContentName(content)}
+      onClick={() => { 
+        setContentName(content);
+        setContentRowData(null);
+        setContentPage(1);
+      }}
     >
       <span>{content}</span>
     </div>
@@ -190,10 +234,12 @@ function GameDataSidebar() {
 }
 
 function GameData() {
+  const contentRowData = useGameContentStore((state) => state.contentRowData);
+
   return (
     <div className="flex-shrink-0 flex-grow flex h-0">
       <GameDataSidebar />
-      <GameDataContent />
+      { contentRowData ? <GameDataContentDrilled /> : <GameDataContent /> }
     </div>
   );
 }
