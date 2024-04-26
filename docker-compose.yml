@@ -1,4 +1,16 @@
 services:
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    environment:
+      - "NEXT_WEBPACK_USEPOLLING=1"
+    ports:
+      - 3000:3000
+    volumes:
+      - type: bind
+        source: ./frontend
+        target: /app
+      - /app/node_modules/
   xivapi-explorer:
     build: ./xivapi-explorer
     container_name: xivapi-explorer
